@@ -190,17 +190,14 @@ def find_options_by_expiration(inputSymbols, expirationDate, optionType=None, in
         return [None]
 
     data = []
+    print(symbols)
     for symbol in symbols:
         allOptions = find_tradable_options(symbol, expirationDate, None, optionType, None)
         filteredOptions = [item for item in allOptions if item.get("expiration_date") == expirationDate]
-
-        for item in filteredOptions:
-            marketData = get_option_market_data_by_id(item['id'])
-            if marketData:
-                item.update(marketData[0])
-            write_spinner()
-
-        data.extend(filteredOptions)
+        ids = [item['id'] for item in allOptions if item.get("expiration_date") == expirationDate]
+        marketData = get_option_market_data_by_multiple_id(ids)
+        merged = merge_option_and_market_data(filteredOptions, marketData)
+        data.extend(merged)
 
     return(filter_data(data, info))
 
@@ -273,15 +270,20 @@ def find_options_by_expiration_and_strike(inputSymbols, expirationDate, strikePr
         allOptions = find_tradable_options(symbol, expirationDate, strikePrice, optionType, None)
         filteredOptions = [item for item in allOptions if item.get("expiration_date") == expirationDate]
 
-        for item in filteredOptions:
-            marketData = get_option_market_data_by_id(item['id'])
-            if marketData:
-                item.update(marketData[0])
-            write_spinner()
-
-        data.extend(filteredOptions)
+        ids = [item['id'] for item in filteredOptions]
+        marketData = get_option_market_data_by_multiple_id(ids)
+        merged = merge_option_and_market_data(filteredOptions, marketData)
+        data.extend(merged)
 
     return filter_data(data, info)
+
+#filtereddata {'chain_id': '7a0285ed-21b2-483e-8b5e-759e1ad86e3c', 'chain_symbol': 'KTOS', 'created_at': '2026-02-06T02:09:22.751611Z', 'expiration_date': '2026-03-20', 'id': '80260940-6eca-453f-9045-b55c7d40c4f7', 'issue_date': '2026-02-06', 'min_ticks': {'above_tick': '0.10', 'below_tick': '0.05', 'cutoff_price': '3.00'}, 'rhs_tradability': 'tradable', 'state': 'active', 'strike_price': '50.0000', 'tradability': 'tradable', 'type': 'put', 'updated_at': '2026-02-06T02:09:22.751613Z', 'url': 'https://api.robinhood.com/options/instruments/80260940-6eca-453f-9045-b55c7d40c4f7/', 'sellout_datetime': '2026-03-20T19:30:00+00:00', 'long_strategy_code': '80260940-6eca-453f-9045-b55c7d40c4f7_L1', 'short_strategy_code': '8026<PASSWORD>-<PASSWORD>-<PASSWORD>-<PASSWORD>-<PASSWORD>', '<PASSWORD>underlying_type': '<PASSWORD>'}
+#data {'adjusted_mark_price': '0.010000', 'adjusted_mark_price_round_down': '0.010000', 'ask_price': '0.750000', 'ask_size': 403, 'bid_price': '0.000000', 'bid_size': 0, 'break_even_price': '49.990000', 'high_price': None, 'instrument': 'https://api.robinhood.com/options/instruments/80260940-6eca-453f-9045-b55c7d40c4f7/', 'instrument_id': '80260940-6eca-453f-9045-b55c7d40c4f7', 'last_trade_price': '0.080000', 'last_trade_size': 2, 'low_price': None, 'mark_price': '0.375000', 'open_interest': 8, 'previous_close_date': '2026-02-25', 'previous_close_price': '0.010000', 'updated_at': '2026-02-26T20:59:45.088165891Z', 'volume': 0, 'symbol': 'KTOS', 'occ_symbol': 'KTOS  260320P00050000', 'state': 'active', 'chance_of_profit_long': '0.003224', 'chance_of_profit_short': '0.996776', 'delta': '-0.001642', 'gamma': '0.000269', 'implied_volatility': '0.889823', 'rho': '-0.000096', 'theta': '-0.002427', 'vega': '0.001189', 'pricing_model': 'Bjerksund-Stensland 1993', 'high_fill_rate_buy_price': None, 'high_fill_rate_sell_price': None, 'low_fill_rate_buy_price': None, 'low_fill_rate_sell_price': None}
+def merge_option_and_market_data(filteredOptions, marketData):
+    """Merges option instrument dicts with market data dicts by matching id == instrument_id.
+    Skips None entries and options with no matching market data."""
+    market_by_id = {d['instrument_id']: d for d in marketData if d is not None and 'instrument_id' in d}
+    return [{**opt, **market_by_id[opt['id']]} for opt in filteredOptions if opt is not None and opt.get('id') in market_by_id]
 
 @login_required
 def find_options_by_specific_profitability(inputSymbols, expirationDate=None, strikePrice=None, optionType=None, typeProfit="chance_of_profit_short", profitFloor=0.0, profitCeiling=1.0, info=None):
@@ -313,27 +315,48 @@ def find_options_by_specific_profitability(inputSymbols, expirationDate=None, st
     if (typeProfit != "chance_of_profit_short" and typeProfit != "chance_of_profit_long"):
         print("Invalid string for 'typeProfit'. Defaulting to 'chance_of_profit_short'.", file=get_output())
         typeProfit = "chance_of_profit_short"
-
+    
     for symbol in symbols:
-        tempData = find_tradable_options(symbol, expirationDate, strikePrice, optionType, info=None)
-        for option in tempData:
-            if expirationDate and option.get("expiration_date") != expirationDate:
-                continue
+        allOptions = find_tradable_options(symbol, expirationDate, None, optionType, None)
+        filteredOptions = [item for item in allOptions if item.get("expiration_date") == expirationDate]
+        ids = [item['id'] for item in allOptions if item.get("expiration_date") == expirationDate]
+        marketData = get_option_market_data_by_multiple_id(ids)
 
-            market_data = get_option_market_data_by_id(option['id'])
+        merged = merge_option_and_market_data(filteredOptions, marketData)
+        merged_profit = [item for item in merged if float(item.get(typeProfit, 0)) >= profitFloor and float(item.get(typeProfit, 0)) <= profitCeiling]
+        data.extend(merged_profit)
+
+        # tempData = find_tradable_options(symbol, expirationDate, strikePrice, optionType, info=None)
+        # for option in tempData:
+        #     if expirationDate and option.get("expiration_date") != expirationDate:
+        #         continue
+
+        #     market_data = get_option_market_data_by_id(option['id'])
             
-            if len(market_data):
-                option.update(market_data[0])
-                write_spinner()
+        #     if len(market_data):
+        #         option.update(market_data[0])
+        #         write_spinner()
 
-                try:
-                    floatValue = float(option[typeProfit])
-                    if (floatValue >= profitFloor and floatValue <= profitCeiling):
-                        data.append(option)
-                except:
-                    pass
+        #         try:
+        #             floatValue = float(option[typeProfit])
+        #             if (floatValue >= profitFloor and floatValue <= profitCeiling):
+        #                 data.append(option)
+        #         except:
+        #             pass
 
     return(filter_data(data, info))
+
+@login_required
+def get_option_market_data_by_multiple_id(ids, info=None):
+    ids_query = ','.join(ids)
+    url = marketdata_options_url()
+    return request_get(url, 'results', {'ids': ids_query})
+
+@login_required
+def get_option_instrument_data_by_multiple_id(ids, info=None):
+    ids_query = ','.join(ids)
+    url = option_instruments_url()
+    return request_get(url, 'results', {'ids': ids_query})
 
 @login_required
 def get_option_market_data_by_id(id, info=None):
@@ -348,16 +371,13 @@ def get_option_market_data_by_id(id, info=None):
     If info parameter is provided, the value of the key that matches info is extracted.
 
     """
-    instrument = get_option_instrument_data_by_id(id)
-    if instrument is None:
-      # e.g. 503 Server Error: Service Unavailable for url: https://api.robinhood.com/options/instruments/d1058013-09a2-4063-b6b0-92717e17d0c0/
-      return None  # just return None which the caller can easily check; do NOT use faked empty data, it will only cause future problem
-    else:
-      payload = {
-          "instruments" : instrument['url']
-      }
-      url = marketdata_options_url()
-      data = request_get(url, 'results', payload)
+    url = marketdata_options_url()
+    payload = {
+        "instruments" : option_instruments_url(id)
+    }
+    print(url, payload)
+
+    data = request_get(url, 'results', payload)
 
     return(filter_data(data, info))
 

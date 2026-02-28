@@ -152,6 +152,45 @@ def get_instruments_by_symbols(inputSymbols, info=None):
 
     return(filter_data(data, info))
 
+def get_instruments_by_batch_ids(inputIds, info=None):
+    """Takes any number of stock tickers and returns information held by the market
+    such as ticker name, bloomberg id, and listing date.
+
+    :param inputIds: May be a single stock id or a list of stock ids.
+    :type inputIds: str or list
+    :param info: Will filter the results to have a list of the values that correspond to key that matches info.
+    :type info: Optional[str]
+    :returns: [list] If info parameter is left as None then the list will a dictionary of key/value pairs for each ticker. \
+    Otherwise, it will be a list of strings where the strings are the values of the key that corresponds to info.
+    :Dictionary Keys: * id
+                      * url
+                      * quote
+                      * fundamentals
+                      * splits
+                      * state
+                      * market
+                      * simple_name
+                      * name
+                      * tradeable
+                      * tradability
+                      * symbol
+                      * bloomberg_unique
+                      * margin_initial_ratio
+                      * maintenance_ratio
+                      * country
+                      * day_trade_ratio
+                      * list_date
+                      * min_tick_size
+                      * type
+                      * tradable_chain_id
+                      * rhs_tradability
+                      * fractional_tradability
+                      * default_collar_fraction
+
+    """ 
+    data = request_get(instruments_url(), 'results', {'ids': ','.join(inputIds)})
+    return(filter_data(data, info))
+
 
 def get_instrument_by_url(url, info=None):
     """Takes a single url for the stock. Should be located at ``https://api.robinhood.com/instruments/<id>`` where <id> is the
