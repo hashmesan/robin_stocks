@@ -330,3 +330,13 @@ def orders_url(orderID=None, account_number=None, start_date=None):
                 url += "&" + value
 
     return url
+
+# indexes
+
+
+def index_historical_chart_url(index_id):
+    return('https://bonfire.robinhood.com/indexes/{0}/historical-chart/'.format(index_id))
+
+
+def index_fundamentals_url():
+    return('https://api.robinhood.com/marketdata/indexes/fundamentals/v1/')

@@ -182,8 +182,8 @@ def login(username=None, password=None, expiresIn=86400, scope='internal', store
                         "ERROR: There was an issue loading pickle file. Authentication may be expired - logging in normally.", file=get_output())
                     set_login_state(False)
                     update_session('Authorization', None)
-        else:
-            os.remove(pickle_path)
+                    raise
+                    
 
     # **Attempt to login normally**
     if not username:
